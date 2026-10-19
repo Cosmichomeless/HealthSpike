@@ -1,0 +1,15 @@
+# Proyecto Xcode: se genera desde project.yml con XcodeGen
+*.xcodeproj/
+build/
+xcuserdata/
+DerivedData/
+
+# Client ID de Google del iPhone (público, pero local)
+Resources/GoogleClient.plist
+
+# Credenciales y entorno
+.env
+*.token.json
+
+# macOS
+.DS_Store
