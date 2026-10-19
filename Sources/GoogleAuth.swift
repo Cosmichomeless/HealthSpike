@@ -18,7 +18,7 @@ enum AuthError: LocalizedError {
 }
 
 /// OAuth code + PKCE con dos modos, según haya `client_secret` en el Keychain:
-/// - con secreto (cliente Web, el de la sonda OAuth del repo original): redirect loopback `http://127.0.0.1:8765/callback`; un NWListener
+/// - con secreto (cliente Web, el de `spikes/oauth_read/probe.py`): redirect loopback `http://127.0.0.1:8765/callback`; un NWListener
 ///   local recoge el código mientras ASWebAuthenticationSession muestra el navegador del sistema.
 /// - sin secreto (cliente iOS, para el móvil real): redirect por esquema inverso
 ///   `com.googleusercontent.apps.<ID>:/oauth2redirect`, que la propia sesión devuelve.

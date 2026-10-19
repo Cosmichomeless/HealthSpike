@@ -11,5 +11,11 @@ Resources/GoogleClient.plist
 .env
 *.token.json
 
+# Spikes: salidas locales con datos reales
+__pycache__/
+spikes/**/logs/
+spikes/**/dashboard.html
+spikes/**/raw*.json
+
 # macOS
 .DS_Store

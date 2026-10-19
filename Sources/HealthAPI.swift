@@ -286,7 +286,7 @@ struct HealthAPI {
 
     // MARK: - Cobertura de todos los dataTypes
 
-    /// Una fila por dataType de la Air (misma lista y filtros que el dashboard de pruebas del repo original), últimos `days` días.
+    /// Una fila por dataType de la Air (misma lista y filtros que `spikes/oauth_read/dashboard.py`), últimos `days` días.
     /// `heart-rate` se omite (14 días son ~300.000 muestras, ~200 MB): la fila la monta el modelo con el pulso de hoy.
     /// Cada tipo falla por separado y deja su código HTTP.
     func coverage(days: Int = 14) async -> [String: CoverageRow] {

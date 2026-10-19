@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fitbit Air · Dashboard</title>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#fff; --ink:#1b1f27; --muted:#667085; --line:#e4e7ec; --grid:#eef0f3;
+  --c-hr:#e5484d; --c-steps:#2f80ed; --c-dist:#14b8a6; --c-kcal:#f59e0b; --c-sleep:#7c5cff;
+  --c-deep:#4338ca; --c-light:#8ea2ff; --c-rem:#d946ef; --c-awake:#f97316;
+  --c-spo2:#06b6d4; --c-hrv:#22c55e; --c-temp:#ef6c3a; --c-base:#98a2b3; --c-vo2:#0ea5e9;
+  --ok:#16a34a; --warn:#d97706;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e1116; --card:#171b22; --ink:#e8ebf0; --muted:#98a2b3; --line:#2a303a; --grid:#222831;
+    --c-deep:#6366f1; --c-light:#8ea2ff; --c-base:#667085;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --card:#171b22; --ink:#e8ebf0; --muted:#98a2b3; --line:#2a303a; --grid:#222831;
+  --c-deep:#6366f1; --c-light:#8ea2ff; --c-base:#667085;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 48px}
+header{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;justify-content:space-between;margin-bottom:16px}
+h1{font-size:22px;margin:0}
+.sub{color:var(--muted);font-size:13px}
+.chip{display:inline-block;padding:2px 9px;border-radius:99px;background:var(--grid);font-size:12px;color:var(--muted);margin-right:6px}
+h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:30px 0 10px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;border-top:3px solid var(--k,var(--line))}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:26px;font-weight:650;margin:2px 0;font-variant-numeric:tabular-nums}
+.kpi .v small{font-size:13px;font-weight:500;color:var(--muted);margin-left:3px}
+.kpi .n{font-size:12px;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 14px 10px}
+.card.wide{grid-column:1/-1}
+.card h3{margin:0 0 2px;font-size:15px}
+.card .d{font-size:12px;color:var(--muted);margin-bottom:6px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+svg{display:block;width:100%;height:auto;overflow:visible}
+svg text{fill:var(--muted);font-size:10.5px;font-family:inherit}
+.empty{color:var(--muted);font-size:13px;padding:30px 0;text-align:center}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:600;font-size:12px}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+.scroll{overflow-x:auto}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.zero{color:var(--muted)}
+footer{margin-top:30px;color:var(--muted);font-size:12px}
+button{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:3px 9px;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Fitbit Air · Dashboard</h1>
+      <div class="sub" id="sub"></div>
+    </div>
+    <div><span id="chips"></span><button id="theme" type="button">Tema</button></div>
+  </header>
+
+  <div class="kpis" id="kpis"></div>
+
+  <h2>Corazón</h2>
+  <div class="grid">
+    <div class="card wide"><h3>Frecuencia cardíaca · últimas 24 h</h3><div class="d">Media y rango (mín–máx) cada 10 min</div><div id="c-hr24"></div><div class="legend" id="l-hr24"></div></div>
+    <div class="card"><h3>FC diaria</h3><div class="d">Mínimo, media y máximo de cada día</div><div id="c-hrday"></div><div class="legend" id="l-hrday"></div></div>
+    <div class="card"><h3>FC en reposo</h3><div class="d">lpm, calculada con sueño</div><div id="c-rhr"></div></div>
+    <div class="card"><h3>HRV nocturna</h3><div class="d">RMSSD medio y de sueño profundo (ms)</div><div id="c-hrv"></div><div class="legend" id="l-hrv"></div></div>
+    <div class="card"><h3>SpO₂ diaria</h3><div class="d">Media y rango (%)</div><div id="c-spo2"></div><div class="legend" id="l-spo2"></div></div>
+  </div>
+
+  <h2>Actividad</h2>
+  <div class="grid">
+    <div class="card"><h3>Pasos por día</h3><div class="d">El último día está en curso</div><div id="c-steps"></div></div>
+    <div class="card"><h3>Pasos por hora · últimas 24 h</h3><div class="d">&nbsp;</div><div id="c-steps24"></div></div>
+    <div class="card"><h3>Distancia (km)</h3><div class="d">&nbsp;</div><div id="c-dist"></div></div>
+    <div class="card"><h3>Calorías totales (kcal)</h3><div class="d">Vía <code>dailyRollUp</code>, no admite <code>list</code></div><div id="c-kcal"></div></div>
+    <div class="card"><h3>Minutos activos</h3><div class="d">Por nivel de actividad</div><div id="c-levels"></div><div class="legend" id="l-levels"></div></div>
+    <div class="card"><h3>Minutos en zona activa</h3><div class="d">Por zona de FC</div><div id="c-zones"></div><div class="legend" id="l-zones"></div></div>
+    <div class="card"><h3>Tiempo sedentario (min)</h3><div class="d">Suma de periodos sedentarios</div><div id="c-sed"></div></div>
+    <div class="card"><h3>Natación · brazadas</h3><div class="d">Dato <code>swim-lengths-data</code> registrado por la Air</div><div id="c-swim"></div></div>
+  </div>
+
+  <h2>Sueño</h2>
+  <div class="grid">
+    <div class="card wide"><h3 id="t-hypno">Última noche</h3><div class="d" id="d-hypno"></div><div id="c-hypno"></div><div class="legend" id="l-hypno"></div></div>
+    <div class="card"><h3>Horas por fase y noche</h3><div class="d">Solo sueño principal</div><div id="c-sleep"></div><div class="legend" id="l-sleep"></div></div>
+    <div class="card"><h3>Temperatura nocturna</h3><div class="d">°C de la noche frente a tu línea base</div><div id="c-temp"></div><div class="legend" id="l-temp"></div></div>
+    <div class="card"><h3>Frecuencia respiratoria</h3><div class="d">Respiraciones por minuto</div><div id="c-resp"></div></div>
+    <div class="card"><h3>Respiración por fase de sueño</h3><div class="d">rpm en sueño profundo, ligero y REM</div><div id="c-respst"></div><div class="legend" id="l-respst"></div></div>
+    <div class="card"><h3>HRV durante la noche</h3><div class="d">RMSSD por muestra (ms)</div><div id="c-nhrv"></div></div>
+    <div class="card"><h3>SpO₂ durante la noche</h3><div class="d">% por muestra</div><div id="c-nspo2"></div></div>
+    <div class="card wide"><h3>Registros de sueño</h3><div class="scroll" id="t-sleep"></div></div>
+  </div>
+
+  <h2>Condición física</h2>
+  <div class="grid">
+    <div class="card"><h3>VO₂ máx. estimado</h3><div class="d" id="d-vo2"></div><div id="c-vo2"></div></div>
+    <div class="card wide"><h3>Ejercicios</h3><div class="scroll" id="t-ex"></div></div>
+  </div>
+
+  <h2>Cobertura de datos y frescura</h2>
+  <div class="card"><div class="scroll" id="t-cov"></div></div>
+
+  <footer id="foot"></footer>
+</div>
+
+<script>
+const D = /*__DATA__*/null;
+if (location.hash === "#dark" || location.hash === "#light") document.documentElement.dataset.theme = location.hash.slice(1);
+const $ = s => document.querySelector(s);
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (v, d = 0) => v == null ? "–" : Number(v).toLocaleString("es-ES", {maximumFractionDigits: d, minimumFractionDigits: d});
+const hm = m => m == null ? "–" : `${Math.floor(m / 60)} h ${String(Math.round(m % 60)).padStart(2, "0")}`;
+const short = d => d.slice(8, 10) + "/" + d.slice(5, 7);
+const DAYS = D.days, N = DAYS.length;
+const has = a => a && a.some(v => v != null);
+const last = a => { for (let i = a.length - 1; i >= 0; i--) if (a[i] != null) return [a[i], i]; return [null, -1]; };
+const mean = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+
+/* ---------- gráfico genérico en SVG ---------- */
+function legend(id, items) {
+  $(id).innerHTML = items.map(([n, c]) => `<span><i style="background:${c}"></i>${n}</span>`).join("");
+}
+function draw(sel, c) {
+  const el = $(sel);
+  const W = 640, H = c.h || 190, L = c.l || 40, R = 8, T = 8, B = 22, iw = W - L - R, ih = H - T - B;
+  const n = c.labels.length;
+  const stack = c.kind === "stack";
+  const all = c.series.flatMap(s => s.data).filter(v => v != null);
+  if (!n || (!all.length && !stack)) { el.innerHTML = '<div class="empty">Sin datos en la ventana</div>'; return; }
+  let vals = [];
+  if (stack) for (let i = 0; i < n; i++) vals.push(c.series.reduce((s, se) => s + (se.data[i] || 0), 0));
+  else vals = all.slice();
+  if (c.band) vals = vals.concat(c.band.lo, c.band.hi).filter(v => v != null);
+  let max = Math.max(...vals, 0), min = c.kind === "lines" ? Math.min(...vals) : 0;
+  if (c.kind === "lines") { const p = (max - min) * .12 || 1; min -= p; max += p; }
+  else max = (max || 1) * 1.08;
+  if (c.ymin != null) min = c.ymin;
+  if (c.ymax != null) max = c.ymax;
+  const step = (max - min) / 4, dec = step < 1 ? 1 : 0;
+  const x = i => c.kind === "lines" ? (n > 1 ? L + iw * i / (n - 1) : L + iw / 2) : L + iw * (i + .5) / n;
+  const y = v => T + ih * (1 - (v - min) / (max - min));
+  let g = "";
+  for (let k = 0; k <= 4; k++) {
+    const v = min + step * k, yy = y(v);
+    g += `<line x1="${L}" x2="${W - R}" y1="${yy}" y2="${yy}" stroke="${css("--grid")}"/>` +
+         `<text x="${L - 5}" y="${yy + 3.5}" text-anchor="end">${(c.yfmt || (q => fmt(q, dec)))(v)}</text>`;
+  }
+  const bw = Math.max(2, iw / n * .68);
+  c.labels.forEach((lb, i) => {
+    const t = c.xl ? c.xl(lb, i) : lb;
+    if (t) g += `<text x="${x(i)}" y="${H - 6}" text-anchor="middle">${t}</text>`;
+  });
+  if (c.kind === "bars") {
+    const s = c.series[0];
+    s.data.forEach((v, i) => { if (v != null) g += `<rect x="${x(i) - bw / 2}" y="${y(v)}" width="${bw}" height="${Math.max(0, y(0) - y(v))}" rx="2" fill="${s.color}"/>`; });
+  } else if (stack) {
+    for (let i = 0; i < n; i++) {
+      let acc = 0;
+      c.series.forEach(s => {
+        const v = s.data[i] || 0; if (!v) return;
+        g += `<rect x="${x(i) - bw / 2}" y="${y(acc + v)}" width="${bw}" height="${Math.max(0, y(acc) - y(acc + v))}" fill="${s.color}"/>`;
+        acc += v;
+      });
+    }
+  } else {
+    if (c.band) {
+      let runs = [], cur = [];
+      c.band.lo.forEach((lo, i) => { const hi = c.band.hi[i]; if (lo == null || hi == null) { if (cur.length) runs.push(cur); cur = []; } else cur.push(i); });
+      if (cur.length) runs.push(cur);
+      runs.forEach(r => {
+        const up = r.map(i => `${x(i)},${y(c.band.hi[i])}`), dn = r.slice().reverse().map(i => `${x(i)},${y(c.band.lo[i])}`);
+        g += `<polygon points="${up.concat(dn).join(" ")}" fill="${c.band.color}" opacity=".22"/>`;
+      });
+    }
+    c.series.forEach(s => {
+      let d = "", pen = false;
+      s.data.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`; pen = true; });
+      g += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="${s.w || 2}" stroke-linejoin="round" ${s.dash ? 'stroke-dasharray="4 3"' : ""}/>`;
+      if (n <= 31) s.data.forEach((v, i) => { if (v != null) g += `<circle cx="${x(i)}" cy="${y(v)}" r="2.6" fill="${s.color}"/>`; });
+    });
+  }
+  const cw = iw / n;
+  c.labels.forEach((lb, i) => {
+    const rows = c.series.map(s => s.data[i] == null ? null : `${s.name}: ${(c.tfmt || (q => fmt(q, 1)))(s.data[i])}`).filter(Boolean);
+    if (c.band && c.band.lo[i] != null) rows.push(`${c.band.name}: ${fmt(c.band.lo[i], 1)}–${fmt(c.band.hi[i], 1)}`);
+    if (rows.length) g += `<rect x="${x(i) - cw / 2}" y="${T}" width="${cw}" height="${ih}" fill="transparent"><title>${lb}\n${rows.join("\n")}</title></rect>`;
+  });
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+
+const dayX = (lb, i) => (N <= 14 || i % 2 === (N - 1) % 2) ? short(lb) : "";
+const hourX = (lb, i) => lb.endsWith(":00") && Number(lb.slice(3, 5)) % 3 === 0 ? lb.slice(3) : "";
+const col = n => css("--c-" + n);
+
+/* ---------- cabecera y KPIs ---------- */
+$("#sub").textContent = `Generado ${D.generated} · ventana de ${D.windowDays} días · Google Health API v4 · ${D.source === "air" ? "solo datos de la Air (se excluyen otras fuentes, p. ej. Apple Health)" : "todas las fuentes mezcladas"}`;
+$("#chips").innerHTML = Object.entries(D.devices).map(([k, v]) => `<span class="chip">${k}: ${fmt(v)} puntos</span>`).join("");
+
+function kpi(label, val, unit, note, color) {
+  return `<div class="kpi" style="--k:${color}"><div class="l">${label}</div><div class="v">${val}<small>${unit || ""}</small></div><div class="n">${note || ""}</div></div>`;
+}
+const today = DAYS[N - 1];
+function lastKpi(arr, dec) {
+  const [v, i] = last(arr);
+  return {v: v == null ? "–" : fmt(v, dec), when: i < 0 ? "" : (DAYS[i] === today ? "hoy" : short(DAYS[i])), avg: mean(arr)};
+}
+const k = [];
+{
+  const hrNow = D.hr24.filter(r => r[1] != null).slice(-1)[0];
+  k.push(kpi("FC reciente", hrNow ? fmt(hrNow[1]) : "–", "lpm", hrNow ? `media ${hrNow[0].slice(3)}` : "", col("hr")));
+  const s = lastKpi(D.steps, 0); k.push(kpi("Pasos", s.v, "", `${s.when} · media ${fmt(s.avg)}`, col("steps")));
+  const cal = lastKpi(D.kcal, 0); k.push(kpi("Calorías", cal.v, "kcal", `${cal.when} · media ${fmt(cal.avg)}`, col("kcal")));
+  const d = lastKpi(D.distKm, 2); k.push(kpi("Distancia", d.v, "km", `${d.when} · media ${fmt(d.avg, 2)}`, col("dist")));
+  const r = lastKpi(D.rhr, 0); k.push(kpi("FC en reposo", r.v, "lpm", `${r.when} · media ${fmt(r.avg, 1)}`, col("hr")));
+  const h = lastKpi(D.hrv.avg, 1); k.push(kpi("HRV", h.v, "ms", `${h.when} · media ${fmt(h.avg, 1)}`, col("hrv")));
+  const o = lastKpi(D.spo2.avg, 1); k.push(kpi("SpO₂ media", o.v, "%", `${o.when} · media ${fmt(o.avg, 1)}`, col("spo2")));
+  const t = lastKpi(D.temp.night, 2), tb = last(D.temp.base)[0];
+  k.push(kpi("Temp. nocturna", t.v, "°C", tb != null && t.v !== "–" ? `${t.when} · Δ base ${(last(D.temp.night)[0] - tb >= 0 ? "+" : "") + fmt(last(D.temp.night)[0] - tb, 2)}` : "", col("temp")));
+  const rp = lastKpi(D.resp, 1); k.push(kpi("Resp.", rp.v, "rpm", `${rp.when} · media ${fmt(rp.avg, 1)}`, col("spo2")));
+  const v = lastKpi(D.vo2, 1); k.push(kpi("VO₂ máx.", v.v, "", `${v.when}${D.vo2Level ? " · nivel " + D.vo2Level : ""}`, col("vo2")));
+  const mains = D.nights.filter(n => n.main), ln = mains[mains.length - 1];
+  k.push(kpi("Sueño última noche", ln ? hm(ln.asleep) : "–", "", ln ? `prof. ${hm(ln.stages.DEEP)} · REM ${hm(ln.stages.REM)}` : "", col("sleep")));
+  k.push(kpi("Ejercicios", D.exercise.length, "", `en ${D.windowDays} días`, col("kcal")));
+}
+$("#kpis").innerHTML = k.join("");
+
+/* ---------- corazón ---------- */
+draw("#c-hr24", {kind: "lines", labels: D.hr24.map(r => r[0]), xl: hourX, h: 210,
+  series: [{name: "Media", color: col("hr"), data: D.hr24.map(r => r[1]), w: 1.8}],
+  band: {name: "mín–máx", color: col("hr"), lo: D.hr24.map(r => r[2]), hi: D.hr24.map(r => r[3])}});
+legend("#l-hr24", [["Media (10 min)", col("hr")], ["Rango mín–máx", col("hr") + "55"]]);
+draw("#c-hrday", {kind: "lines", labels: DAYS, xl: dayX, series: [
+  {name: "Máx", color: col("hr"), data: D.hrMax}, {name: "Media", color: col("kcal"), data: D.hrAvg}, {name: "Mín", color: col("steps"), data: D.hrMin}]});
+legend("#l-hrday", [["Máx", col("hr")], ["Media", col("kcal")], ["Mín", col("steps")]]);
+draw("#c-rhr", {kind: "lines", labels: DAYS, xl: dayX, series: [{name: "FC reposo", color: col("hr"), data: D.rhr}]});
+draw("#c-hrv", {kind: "lines", labels: DAYS, xl: dayX, series: [
+  {name: "Media", color: col("hrv"), data: D.hrv.avg}, {name: "Sueño profundo", color: col("deep"), data: D.hrv.deep}]});
+legend("#l-hrv", [["Media", col("hrv")], ["Sueño profundo", col("deep")]]);
+draw("#c-spo2", {kind: "lines", labels: DAYS, xl: dayX, series: [{name: "Media", color: col("spo2"), data: D.spo2.avg}],
+  band: {name: "mín–máx", color: col("spo2"), lo: D.spo2.lo, hi: D.spo2.hi}});
+legend("#l-spo2", [["Media", col("spo2")], ["Rango", col("spo2") + "55"]]);
+
+/* ---------- actividad ---------- */
+draw("#c-steps", {kind: "bars", labels: DAYS, xl: dayX, series: [{name: "Pasos", color: col("steps"), data: D.steps}], tfmt: v => fmt(v)});
+draw("#c-steps24", {kind: "bars", labels: D.steps24.map(r => r[0]), xl: hourX, series: [{name: "Pasos", color: col("steps"), data: D.steps24.map(r => r[1])}], tfmt: v => fmt(v)});
+draw("#c-dist", {kind: "bars", labels: DAYS, xl: dayX, series: [{name: "km", color: col("dist"), data: D.distKm}], yfmt: v => fmt(v, 1), tfmt: v => fmt(v, 2)});
+draw("#c-kcal", {kind: "bars", labels: DAYS, xl: dayX, series: [{name: "kcal", color: col("kcal"), data: D.kcal}], tfmt: v => fmt(v)});
+const LV = {SEDENTARY: ["Sedentario", "base"], LIGHT: ["Ligero", "light"], MODERATE: ["Moderado", "kcal"], VERY: ["Intenso", "hr"], VIGOROUS: ["Intenso", "hr"]};
+const lvKeys = Object.keys(D.levels);
+draw("#c-levels", {kind: "stack", labels: DAYS, xl: dayX, tfmt: v => fmt(v) + " min",
+  series: lvKeys.map(key => ({name: (LV[key] || [key])[0], color: col((LV[key] || [0, "dist"])[1]), data: D.levels[key]}))});
+legend("#l-levels", lvKeys.map(key => [(LV[key] || [key])[0], col((LV[key] || [0, "dist"])[1])]));
+const ZN = {FAT_BURN: ["Quema de grasa", "kcal"], CARDIO: ["Cardio", "hr"], PEAK: ["Pico", "rem"], MODERATE: ["Moderada", "kcal"], VIGOROUS: ["Vigorosa", "hr"]};
+const znKeys = Object.keys(D.zones);
+draw("#c-zones", {kind: "stack", labels: DAYS, xl: dayX, tfmt: v => fmt(v) + " min",
+  series: znKeys.map(key => ({name: (ZN[key] || [key])[0], color: col((ZN[key] || [0, "dist"])[1]), data: D.zones[key]}))});
+legend("#l-zones", znKeys.map(key => [(ZN[key] || [key])[0], col((ZN[key] || [0, "dist"])[1])]));
+draw("#c-sed", {kind: "bars", labels: DAYS, xl: dayX, series: [{name: "min", color: col("base"), data: D.sedMin}], tfmt: v => fmt(v) + " min"});
+draw("#c-swim", {kind: "bars", labels: DAYS, xl: dayX, series: [{name: "brazadas", color: col("spo2"), data: D.swim}], tfmt: v => fmt(v)});
+
+/* ---------- sueño ---------- */
+const mainNights = {};
+D.nights.filter(n => n.main).forEach(n => { if (!mainNights[n.date] || mainNights[n.date].asleep < n.asleep) mainNights[n.date] = n; });
+const nightDates = Object.keys(mainNights).sort();
+const mh = key => nightDates.map(d => (mainNights[d].stages[key] || 0) / 60);
+draw("#c-sleep", {kind: "stack", labels: nightDates, xl: (lb, i) => nightDates.length <= 14 || i % 2 === 0 ? short(lb) : "", tfmt: v => hm(v * 60),
+  yfmt: v => fmt(v, 0) + " h", series: [
+  {name: "Profundo", color: col("deep"), data: mh("DEEP")}, {name: "REM", color: col("rem"), data: mh("REM")},
+  {name: "Ligero", color: col("light"), data: mh("LIGHT")}, {name: "Despierto", color: col("awake"), data: mh("AWAKE")}]});
+legend("#l-sleep", [["Profundo", col("deep")], ["REM", col("rem")], ["Ligero", col("light")], ["Despierto", col("awake")]]);
+draw("#c-temp", {kind: "lines", labels: DAYS, xl: dayX, tfmt: v => fmt(v, 2) + " °C", series: [
+  {name: "Noche", color: col("temp"), data: D.temp.night}, {name: "Línea base", color: col("base"), data: D.temp.base, dash: true, w: 1.5}]});
+legend("#l-temp", [["Noche", col("temp")], ["Línea base", col("base")]]);
+draw("#c-resp", {kind: "lines", labels: DAYS, xl: dayX, series: [{name: "rpm", color: col("spo2"), data: D.resp}]});
+{
+  const rs = D.respStages;
+  draw("#c-respst", {kind: "lines", labels: rs.map(r => r.date), xl: (lb, i) => rs.length <= 14 || i % 2 === 0 ? short(lb) : "", series: [
+    {name: "Profundo", color: col("deep"), data: rs.map(r => r.deep)}, {name: "Ligero", color: col("light"), data: rs.map(r => r.light)}, {name: "REM", color: col("rem"), data: rs.map(r => r.rem)}]});
+  legend("#l-respst", [["Profundo", col("deep")], ["Ligero", col("light")], ["REM", col("rem")]]);
+}
+draw("#c-nhrv", {kind: "lines", labels: D.night_hrv.map(r => r[0]), xl: (lb, i, a) => i % Math.max(1, Math.ceil(D.night_hrv.length / 8)) === 0 ? lb : "",
+  series: [{name: "RMSSD", color: col("hrv"), data: D.night_hrv.map(r => r[1])}]});
+draw("#c-nspo2", {kind: "lines", labels: D.night_spo2.map(r => r[0]), xl: (lb, i) => i % Math.max(1, Math.ceil(D.night_spo2.length / 8)) === 0 ? lb : "",
+  series: [{name: "SpO₂", color: col("spo2"), data: D.night_spo2.map(r => r[1])}]});
+
+// hipnograma
+{
+  const el = $("#c-hypno");
+  if (!D.hypno.length) el.innerHTML = '<div class="empty">Sin fases de sueño</div>';
+  else {
+    const rows = ["AWAKE", "REM", "LIGHT", "DEEP"], names = {AWAKE: "Despierto", REM: "REM", LIGHT: "Ligero", DEEP: "Profundo"};
+    const colr = {AWAKE: col("awake"), REM: col("rem"), LIGHT: col("light"), DEEP: col("deep")};
+    const W = 900, L = 70, R = 10, T = 6, rh = 26, H = T + rows.length * rh + 22, iw = W - L - R, tot = D.hypno_total;
+    let g = rows.map((r, i) => `<text x="${L - 8}" y="${T + i * rh + 17}" text-anchor="end">${names[r]}</text><line x1="${L}" x2="${W - R}" y1="${T + (i + 1) * rh}" y2="${T + (i + 1) * rh}" stroke="${css("--grid")}"/>`).join("");
+    D.hypno.forEach(([a, b, t]) => {
+      const i = rows.indexOf(t); if (i < 0) return;
+      g += `<rect x="${L + iw * a / tot}" y="${T + i * rh + 3}" width="${Math.max(1.2, iw * (b - a) / tot)}" height="${rh - 6}" rx="2" fill="${colr[t]}"><title>${names[t]} · ${Math.round(b - a)} min</title></rect>`;
+    });
+    const [h0, m0] = D.hypno_start.split(":").map(Number);
+    for (let m = (60 - m0) % 60; m <= tot; m += 60) {
+      const hh = (h0 + Math.floor((m0 + m) / 60)) % 24;
+      g += `<text x="${L + iw * m / tot}" y="${H - 6}" text-anchor="middle">${String(hh).padStart(2, "0")}:00</text>`;
+    }
+    el.innerHTML = `<svg viewBox="0 0 ${W} ${H}">${g}</svg>`;
+    legend("#l-hypno", rows.map(r => [names[r], colr[r]]));
+    const ln = D.nights.filter(n => n.main).slice(-1)[0];
+    $("#t-hypno").textContent = `Última noche · ${D.night_window[0]} → ${D.night_window[1]}`;
+    $("#d-hypno").textContent = ln ? `Dormido ${hm(ln.asleep)} · despierto ${ln.awake} min · ${ln.awakenings} despertares breves · tipo ${ln.type}` : "";
+  }
+}
+$("#t-sleep").innerHTML = `<table><tr><th>Fin</th><th>Inicio → fin</th><th>Tipo</th><th class="r">Dormido</th><th class="r">Profundo</th><th class="r">REM</th><th class="r">Ligero</th><th class="r">Despierto</th><th class="r">Desp. breves</th></tr>` +
+  D.nights.slice().reverse().map(n => `<tr><td>${n.date}${n.main ? "" : " <span class='chip'>siesta</span>"}</td><td>${n.start} → ${n.end}</td><td>${n.type}</td><td class="r">${hm(n.asleep)}</td><td class="r">${n.stages.DEEP != null ? hm(n.stages.DEEP) : "–"}</td><td class="r">${n.stages.REM != null ? hm(n.stages.REM) : "–"}</td><td class="r">${n.stages.LIGHT != null ? hm(n.stages.LIGHT) : "–"}</td><td class="r">${n.awake} min</td><td class="r">${n.awakenings}</td></tr>`).join("") + "</table>";
+
+/* ---------- condición física ---------- */
+draw("#c-vo2", {kind: "lines", labels: DAYS, xl: dayX, series: [{name: "VO₂ máx.", color: col("vo2"), data: D.vo2}]});
+$("#d-vo2").textContent = D.vo2Level ? `Nivel de forma cardiorrespiratoria: ${D.vo2Level}` : "";
+$("#t-ex").innerHTML = D.exercise.length ? `<table><tr><th>Inicio</th><th>Actividad</th><th class="r">Min</th><th class="r">kcal</th><th class="r">km</th><th class="r">Pasos</th><th class="r">FC media</th><th class="r">Ritmo min/km</th><th>Zonas (min)</th></tr>` +
+  D.exercise.map(e => `<tr><td>${e.start}</td><td>${e.name}</td><td class="r">${e.min}</td><td class="r">${fmt(e.kcal)}</td><td class="r">${fmt(e.km, 2)}</td><td class="r">${fmt(e.steps)}</td><td class="r">${fmt(e.hr)}</td><td class="r">${e.pace ? fmt(e.pace, 1) : "–"}</td><td>${Object.entries(e.zones).map(([z, m]) => `${z} ${m}`).join(" · ")}</td></tr>`).join("") + "</table>" : '<div class="empty">Sin ejercicios en la ventana</div>';
+
+/* ---------- cobertura ---------- */
+const age = m => m == null ? "–" : m < 60 ? `hace ${m} min` : m < 2880 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} d`;
+$("#t-cov").innerHTML = `<table><tr><th>dataType</th><th>Descripción</th><th>Tipo de registro</th><th class="r">Puntos</th><th class="r">Otras fuentes</th><th>Primero</th><th>Último</th><th class="r">Antigüedad</th><th class="r">HTTP</th></tr>` +
+  D.coverage.map(c => `<tr class="${c.n ? "" : "zero"}"><td><span class="dot" style="background:${c.n ? css("--ok") : css("--c-base")}"></span><code>${c.type}</code></td><td>${c.label}</td><td>${c.kind || "–"}</td><td class="r">${fmt(c.n)}</td><td class="r ${c.other ? "" : "zero"}">${c.other ? fmt(c.other) : "–"}</td><td>${(c.first || "–").slice(0, 16).replace("T", " ")}</td><td>${(c.last || "–").slice(0, 16).replace("T", " ")}</td><td class="r">${age(c.ageMin)}</td><td class="r">${c.http || "–"}</td></tr>`).join("") + "</table>";
+
+$("#foot").textContent = "Datos reales de tu cuenta leídos con probe.py (OAuth, scopes de solo lectura). Este fichero contiene datos de salud personales: no lo subas al repositorio.";
+
+/* ---------- tema ---------- */
+$("#theme").onclick = () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme:dark)").matches ? "dark" : "light");
+  location.hash = cur === "dark" ? "#light" : "#dark";
+  location.reload();
+};
+</script>
+</body>
+</html>
