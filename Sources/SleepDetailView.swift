@@ -5,6 +5,7 @@ struct SleepDetailView: View {
     @EnvironmentObject var model: HealthModel
     @AppStorage("sleepGoalHours") private var sleepGoal = 8.0
     @State private var range = HistRange.day
+    @State private var day = DayChoice.today
 
     var body: some View {
         ScrollView {
@@ -14,7 +15,7 @@ struct SleepDetailView: View {
                 }.pickerStyle(.segmented)
 
                 if let e = model.error { ErrorBanner(text: e) }
-                if range == .day { nightContent } else { rangeContent }
+                if range == .day { DayChoicePicker(choice: $day); nightContent } else { rangeContent }
             }
             .padding(.horizontal, 16).padding(.bottom, 24)
         }
@@ -25,36 +26,48 @@ struct SleepDetailView: View {
 
     private var lastNight: SleepNight? { model.today?.sleep ?? model.nights.last }
 
+    /// La noche que terminó el día anterior al de la última: así «Ayer» nunca repite la de «Hoy», aunque aún no hayas dormido hoy.
+    /// La descarga de «ayer» no trae sueño, por eso sale del histórico.
+    private var previousNight: SleepNight? {
+        guard let last = lastNight else { return nil }
+        let cal = Calendar.current
+        guard let before = cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: last.end)) else { return nil }
+        return model.nights.last { cal.isDate($0.end, inSameDayAs: before) }
+    }
+
     // MARK: - Noche
 
     @ViewBuilder
     private var nightContent: some View {
-        if let n = lastNight {
+        if let n = day == .today ? lastNight : previousNight {
             VStack(alignment: .leading, spacing: 12) {
                 CardHeader(icon: "moon.fill", title: "Duración del sueño", color: Theme.sleep,
                            trailing: n.end.formatted(.dateTime.weekday(.wide).day().month(.abbreviated).locale(esES)), chevron: false)
                 SleepNightContent(night: n, goalHours: sleepGoal, chartHeight: 112)
             }.card()
 
-            if let t = model.today, t.sleep?.end == n.end, !t.naps.isEmpty { napsCard(night: n, naps: t.naps) }
+            if day == .today, let t = model.today, t.sleep?.end == n.end, !t.naps.isEmpty { napsCard(night: n, naps: t.naps) }
 
             SleepScoreCard(night: n, goalHours: sleepGoal)
 
-            HStack(alignment: .top, spacing: 12) {
-                VitalsMiniCard(vitals: model.vitals)
-                WeekSleepMiniCard(night: n)
-            }.fixedSize(horizontal: false, vertical: true)
+            // Constantes, consejo y «Esta semana» hablan de la última noche y abren pantallas con ella: solo en «Hoy».
+            if day == .today {
+                HStack(alignment: .top, spacing: 12) {
+                    VitalsMiniCard(vitals: model.vitals)
+                    WeekSleepMiniCard(night: n)
+                }.fixedSize(horizontal: false, vertical: true)
 
-            HStack(alignment: .top, spacing: 12) {
-                BedtimeMiniCard(night: n)
-                SleepAdviceMiniCard()
-            }.fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .top, spacing: 12) {
+                    BedtimeMiniCard(night: n)
+                    SleepAdviceMiniCard()
+                }.fixedSize(horizontal: false, vertical: true)
 
-            ScheduleNotice(night: n)
+                ScheduleNotice(night: n)
+            }
         } else if model.loading {
             ProgressView().frame(maxWidth: .infinity, minHeight: 240)
         } else {
-            EmptyNote(text: "Sin sueño en las últimas 36 h")
+            EmptyNote(text: day == .today ? "Sin sueño en las últimas 36 h" : "Sin sueño registrado ayer")
         }
     }
 
