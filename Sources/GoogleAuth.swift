@@ -65,9 +65,16 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         }
     }
 
+    /// Sube con cada cierre de sesión: una renovación en vuelo que termine después no debe reponer tokens ni `signedIn`.
+    private var epoch = 0
+
     func signOut() {
+        epoch += 1
+        tokenTask?.cancel(); tokenTask = nil
+        session?.cancel(); session = nil
         Keychain.set(nil, for: "refresh_token")
         accessToken = nil
+        accessExpiry = .distantPast
         signedIn = false
     }
 
@@ -154,6 +161,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
     }
 
     private func postToken(_ form: [String: String]) async throws -> String {
+        let startEpoch = epoch
         var req = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
         req.httpMethod = "POST"
         req.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
@@ -166,6 +174,7 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
               let access = json["access_token"] as? String else {
             throw AuthError.http(status, String(data: data, encoding: .utf8) ?? "")
         }
+        guard startEpoch == epoch else { throw CancellationError() }
         accessToken = access
         accessExpiry = Date().addingTimeInterval((json["expires_in"] as? Double) ?? 3600)
         if let r = json["refresh_token"] as? String { Keychain.set(r, for: "refresh_token") }

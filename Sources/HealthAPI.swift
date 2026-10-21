@@ -889,9 +889,10 @@ final class HealthModel: ObservableObject {
 
             var s = try await light
             s.heartRate = cachedHR
-            if !cachedHR.isEmpty { snapshot = s }          // pasos y sueño ya, mientras llega el pulso
+            if !cachedHR.isEmpty, auth.signedIn { snapshot = s }          // pasos y sueño ya, mientras llega el pulso
             s.heartRate = cachedHR.filter { $0.time < hrFrom } + (try await hr)
             s.fetchedAt = Date()
+            guard auth.signedIn else { return }            // se cerró sesión durante la lectura: no reponer datos
             snapshot = s
             saveSnapshotCache(s)
             if await histOK { lastHistory = Date() }

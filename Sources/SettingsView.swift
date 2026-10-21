@@ -94,12 +94,14 @@ struct SettingsView: View {
             .navigationTitle("Ajustes")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Listo") { dismiss() } } }
-            .confirmationDialog(confirm == .clear ? "¿Borrar el histórico guardado?" : "¿Cerrar sesión?", isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }),
-                                titleVisibility: .visible, presenting: confirm) { c in
+            // Alerta y no `confirmationDialog`: en iOS 26 este último sale como popover anclado arriba y su botón no llegaba a ejecutarse.
+            .alert(confirm == .clear ? "¿Borrar el histórico guardado?" : "¿Cerrar sesión?", isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }),
+                   presenting: confirm) { c in
+                Button("Cancelar", role: .cancel) {}
                 if c == .clear {
                     Button("Borrar y volver a descargar", role: .destructive) { model.clearCache(); Task { await model.refresh() } }
                 } else {
-                    Button("Cerrar sesión", role: .destructive) { model.signOut() }
+                    Button("Cerrar sesión", role: .destructive) { model.signOut(); dismiss() }
                 }
             } message: { c in
                 Text(c == .clear ? "Se vuelve a pedir todo a Google, hasta un año de datos."
