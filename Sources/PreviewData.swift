@@ -64,8 +64,8 @@ enum PreviewData {
             s.steps.append(reading(t, steps))
             s.distanceKm.append(reading(t, steps * 0.00072))
         }
-        // Pulso cada 5 min durante todo el día.
-        for i in 0..<288 {
+        // Pulso cada 5 min hasta las 21:00 (`fetchedAt`): lo que pase de ahí se saldría del eje del gráfico.
+        for i in 0..<252 {
             let t = midnight.addingTimeInterval(Double(i) * 300)
             let h = Double(i) / 12
             let base = h < 7 ? 56 : 70 + 12 * sin(h / 24 * 2 * .pi * 2)
