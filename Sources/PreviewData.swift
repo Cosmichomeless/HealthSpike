@@ -13,7 +13,7 @@ enum PreviewData {
     }
 
     private static func day(_ daysAgo: Int) -> Date { cal.date(byAdding: .day, value: -daysAgo, to: today)! }
-    private static func reading(_ t: Date, _ v: Double) -> Reading { Reading(isAir: true, source: "Fitbit Air", time: t, value: v) }
+    private static func reading(_ t: Date, _ v: Double) -> Reading { Reading(source: SourceID(.google, "Fitbit Air"), time: t, value: v) }
 
     // MARK: - Sueño
 

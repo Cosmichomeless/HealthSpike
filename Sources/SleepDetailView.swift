@@ -536,7 +536,7 @@ struct NightHeartRow: View {
                 Text("Pulso durante la noche")
             }.font(.subheadline)
             if let r = readings {
-                let pts = model.airOnly ? r.filter(\.isAir) : r
+                let pts = r.filter { model.sourceScope.keeps($0.source) }
                 if pts.count < 10 { Text("Sin pulso suficiente esta noche").font(.footnote).foregroundStyle(.secondary) }
                 else { content(pts) }
             } else {

@@ -86,9 +86,9 @@ struct ActivityView: View {
             ZoneMinutesCard(days: model.zones, day: day)
             CardioLoadChartCard(range: .day, day: day)
             if t.otherSourceSteps > 0 {
-                Label(model.airOnly
-                      ? "Google también tiene \(Int(t.otherSourceSteps).formatted()) pasos de Apple Health \(day == .today ? "hoy" : "ayer"); se ignoran porque la fuente es solo Air."
-                      : "Incluye \(Int(t.otherSourceSteps).formatted()) pasos de Apple Health: pueden estar duplicados con la Air.",
+                Label(model.sourceScope == .googleOnly
+                      ? "Google también tiene \(Int(t.otherSourceSteps).formatted()) pasos de Apple Health \(day == .today ? "hoy" : "ayer"); se ignoran porque la fuente es solo Google Health."
+                      : "Incluye \(Int(t.otherSourceSteps).formatted()) pasos de Apple Health: pueden estar duplicados con los de Google Health.",
                       systemImage: "info.circle")
                     .font(.footnote).foregroundStyle(.secondary)
             }

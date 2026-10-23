@@ -44,15 +44,15 @@ struct TodayMetrics {
     let hourlyDistance: [HourValue]       // km por hora
     let heartBuckets: [HRBucket]          // FC en tramos de 10 min, calculado una vez
 
-    init(_ s: Snapshot, airOnly: Bool) {
+    init(_ s: Snapshot, scope: SourceScope) {
         let cal = Calendar.current
-        let keep: (Reading) -> Bool = { airOnly ? $0.isAir : true }
+        let keep: (Reading) -> Bool = { scope.keeps($0.source) }
         midnight = cal.startOfDay(for: s.fetchedAt)
         fetchedAt = s.fetchedAt
         let st = s.steps.filter(keep)
         steps = st.reduce(0) { $0 + $1.value }
         distanceKm = s.distanceKm.filter(keep).reduce(0) { $0 + $1.value }
-        otherSourceSteps = s.steps.filter { !$0.isAir }.reduce(0) { $0 + $1.value }
+        otherSourceSteps = s.steps.filter { $0.source.provider != .google }.reduce(0) { $0 + $1.value }
         hr = s.heartRate.filter(keep)
         lastHR = hr.max(by: { $0.time < $1.time })
         hrMin = hr.map(\.value).min()

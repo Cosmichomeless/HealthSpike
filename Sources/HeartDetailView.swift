@@ -56,7 +56,7 @@ struct HeartDetailView: View {
                 CardioLoadRow()
             }
             if let last = t.lastHR {
-                Text("Última muestra a las \(last.time.hhmm) · \(last.source)").font(.footnote).foregroundStyle(.secondary)
+                Text("Última muestra a las \(last.time.hhmm) · \(last.source.origin)").font(.footnote).foregroundStyle(.secondary)
             }
         } else if day == .today ? model.loading : model.yesterdayLoading {
             ProgressView().frame(maxWidth: .infinity, minHeight: 240)

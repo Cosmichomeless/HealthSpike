@@ -207,7 +207,7 @@ final class CoachStore: ObservableObject {
             // Un entreno inventado que acaba de terminar: pasa por la detección real de `catchUp`.
             let end = Date().addingTimeInterval(-35 * 60)
             HealthModel.fakeWorkouts = [Workout(id: "debug-workout-\(Int(end.timeIntervalSince1970))", type: "RUNNING", name: "Carrera", start: end.addingTimeInterval(-60 * 60), end: end,
-                                                kcal: 480, km: 7.2, steps: 8_600, avgHR: 152, paceMinPerKm: 8.3, zones: ["light": 5, "moderate": 25, "vigorous": 22, "peak": 8], isAir: true)]
+                                                kcal: 480, km: 7.2, steps: 8_600, avgHR: 152, paceMinPerKm: 8.3, zones: ["light": 5, "moderate": 25, "vigorous": 22, "peak": 8])]
             _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
             print("coachTest: entreno inventado, detectando…")
             await catchUp(model: model)

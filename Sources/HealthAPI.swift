@@ -1,13 +1,32 @@
 import Combine
 import Foundation
 
-/// Un punto de Google Health ya reducido a lo que la app usa. `isAir` sale de `dataSource.platform`:
-/// Google mezcla en la misma lista la Air (FITBIT) y Apple Health (HEALTH_KIT).
+/// Un punto de datos ya reducido a lo que la app usa. `source` sale de `dataSource.platform` en Google:
+/// Google mezcla en la misma lista la pulsera (FITBIT) y Apple Health (HEALTH_KIT).
 struct Reading: Codable {
-    let isAir: Bool
-    let source: String
+    let source: SourceID
     let time: Date
     let value: Double
+
+    init(source: SourceID, time: Date, value: Double) {
+        self.source = source; self.time = time; self.value = value
+    }
+
+    private enum CodingKeys: String, CodingKey { case source, time, value }
+    private enum Legacy: String, CodingKey { case isAir }
+
+    /// Las cachés anteriores guardaban `isAir` y el nombre de la fuente como texto: se siguen leyendo.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        time = try c.decode(Date.self, forKey: .time)
+        value = try c.decode(Double.self, forKey: .value)
+        if let id = try? c.decode(SourceID.self, forKey: .source) {
+            source = id
+        } else {
+            let isAir = try decoder.container(keyedBy: Legacy.self).decodeIfPresent(Bool.self, forKey: .isAir) ?? true
+            source = SourceID(legacyIsAir: isAir, name: try? c.decode(String.self, forKey: .source))
+        }
+    }
 }
 
 struct SleepSegment: Identifiable, Codable {
@@ -20,9 +39,31 @@ struct SleepNight: Identifiable, Codable {
     let start: Date, end: Date
     let minutes: [String: Double]   // DEEP, REM, LIGHT, AWAKE
     let segments: [SleepSegment]
-    var isAir = true
+    var source = SourceID.google
     var id: Date { end }
     var asleep: Double { minutes.filter { $0.key != "AWAKE" }.values.reduce(0, +) }
+
+    private enum CodingKeys: String, CodingKey { case start, end, minutes, segments, source }
+    private enum Legacy: String, CodingKey { case isAir }
+
+    /// Las cachés anteriores guardaban `isAir`: se siguen leyendo.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        start = try c.decode(Date.self, forKey: .start)
+        end = try c.decode(Date.self, forKey: .end)
+        minutes = try c.decode([String: Double].self, forKey: .minutes)
+        segments = try c.decode([SleepSegment].self, forKey: .segments)
+        if let id = try c.decodeIfPresent(SourceID.self, forKey: .source) {
+            source = id
+        } else {
+            let isAir = try decoder.container(keyedBy: Legacy.self).decodeIfPresent(Bool.self, forKey: .isAir) ?? true
+            source = SourceID(legacyIsAir: isAir, name: nil)
+        }
+    }
+
+    init(start: Date, end: Date, minutes: [String: Double], segments: [SleepSegment], source: SourceID = .google) {
+        self.start = start; self.end = end; self.minutes = minutes; self.segments = segments; self.source = source
+    }
 }
 
 /// Un día del histórico (rollups diarios de Google: no traen fuente, salen de la Air).
@@ -38,7 +79,7 @@ struct DayStat: Identifiable, Codable {
 
 struct History: Codable {
     var days: [DayStat] = []         // del más antiguo a hoy
-    var resting: [Reading] = []      // FC en reposo diaria (isAir distingue Fitbit de Apple Health)
+    var resting: [Reading] = []      // FC en reposo diaria (`source` distingue Fitbit de Apple Health)
     var nights: [SleepNight] = []    // una por día (la más larga), del más antiguo al más reciente
     /// `false` si alguna petición falló: el hueco no debe darse por bueno ni guardarse en la caché.
     var complete = true
@@ -57,7 +98,7 @@ struct HistoryCache: Codable {
 /// Cobertura y frescura de un dataType: cuántos puntos hay, de qué fuentes, primero/último y respuesta HTTP.
 struct CoverageRow: Identifiable {
     let type: String, label: String, kind: String
-    var n = 0                        // puntos de la Air
+    var n = 0                        // puntos de Google (la pulsera)
     var other = 0                    // puntos de otras fuentes (Apple Health…)
     var first: Date?, last: Date?
     var dayOnly = false              // daily y rollup: solo fecha, sin hora ni antigüedad
@@ -113,10 +154,10 @@ struct HealthAPI {
 
         s.steps = try await steps.compactMap { Self.reading($0, "steps", key: "count", scale: 1, timePath: ["interval", "startTime"]) }
         s.distanceKm = try await dist.compactMap { Self.reading($0, "distance", key: "millimeters", scale: 1_000_000, timePath: ["interval", "startTime"]) }
-        s.restingHR = try await rhr.compactMap { Self.restingReading($0) }.first(where: { $0.isAir })
+        s.restingHR = try await rhr.compactMap { Self.restingReading($0) }.first(where: { $0.source.provider == .google })
         // Google junta todas las sesiones del día (noche + siestas): la noche es la más larga y el resto son siestas.
         // Quedarse con la última en terminar enseñaba solo la siesta cuando había una por la tarde.
-        let sessions = Self.nights(try await sleep).filter(\.isAir)
+        let sessions = Self.nights(try await sleep).filter { $0.source.provider == .google }
         if let latest = sessions.max(by: { $0.end < $1.end }) {
             let day = cal.startOfDay(for: latest.end)
             let ofDay = sessions.filter { cal.startOfDay(for: $0.end) == day }
@@ -236,9 +277,9 @@ struct HealthAPI {
         h.resting = (rhrRes ?? []).compactMap(Self.restingReading).sorted { $0.time < $1.time }
         // Una noche por día de despertar: gana la más larga (las siestas quedan fuera).
         let nights = Self.nights(slRes ?? [])
-        let perDay = Dictionary(grouping: nights.filter(\.isAir)) { cal.startOfDay(for: $0.end) }
+        let perDay = Dictionary(grouping: nights.filter { $0.source.provider == .google }) { cal.startOfDay(for: $0.end) }
         h.nights = perDay.values.compactMap { $0.max(by: { $0.asleep < $1.asleep }) }.sorted { $0.end < $1.end }
-        let other = Dictionary(grouping: nights.filter { !$0.isAir }) { cal.startOfDay(for: $0.end) }
+        let other = Dictionary(grouping: nights.filter { $0.source.provider != .google }) { cal.startOfDay(for: $0.end) }
         h.nights += other.filter { perDay[$0.key] == nil }.values.compactMap { $0.max(by: { $0.asleep < $1.asleep }) }
         h.nights.sort { $0.end < $1.end }
         return h
@@ -323,7 +364,7 @@ struct HealthAPI {
             } else {
                 let small = kind == "exercise" || kind == "sleep"
                 let pts = try await points(type, filter: filter, pageSize: small ? 25 : 10000, maxPages: small ? 4 : 8)
-                let mine = pts.filter { Self.sourceInfo($0).0 }
+                let mine = pts.filter { Self.sourceInfo($0).provider == .google }
                 row.n = mine.count; row.other = pts.count - mine.count
                 row.capped = pts.count >= (small ? 25 * 4 : 10000 * 8)
                 let times = mine.compactMap { Self.pointTime($0, type) }
@@ -386,12 +427,14 @@ struct HealthAPI {
         return ["date": ["year": c.year!, "month": c.month!, "day": c.day!], "time": [String: Int]()]
     }
 
-    static func sourceInfo(_ p: [String: Any]) -> (Bool, String) {
+    /// Quién entregó el punto. Fitbit y los puntos sin `dataSource` (rollups) son de Google; HEALTH_KIT es Apple Health
+    /// mezclado por Google (no es lo mismo que leer HealthKit directamente) y cualquier otra plataforma va aparte.
+    static func sourceInfo(_ p: [String: Any]) -> SourceID {
         let ds = p["dataSource"] as? [String: Any]
         switch ds?["platform"] as? String {
-        case "FITBIT": return (true, ((ds?["device"] as? [String: Any])?["displayName"] as? String) ?? "Fitbit")
-        case "HEALTH_KIT": return (false, "Apple Health")
-        default: return (ds == nil, (ds?["platform"] as? String) ?? "(sin fuente)")
+        case "FITBIT": return SourceID(.google, ((ds?["device"] as? [String: Any])?["displayName"] as? String) ?? "Fitbit")
+        case "HEALTH_KIT": return SourceID(.other, "Apple Health")
+        default: return ds == nil ? .google : SourceID(.other, (ds?["platform"] as? String) ?? "(sin fuente)")
         }
     }
 
@@ -401,8 +444,7 @@ struct HealthAPI {
         var node: Any? = body
         for k in timePath { node = (node as? [String: Any])?[k] }
         guard let t = (node as? String).flatMap(parse) else { return nil }
-        let (air, name) = sourceInfo(p)
-        return Reading(isAir: air, source: name, time: t, value: v / scale)
+        return Reading(source: sourceInfo(p), time: t, value: v / scale)
     }
 
     private static func restingReading(_ p: [String: Any]) -> Reading? {
@@ -410,11 +452,10 @@ struct HealthAPI {
               let v = (body["beatsPerMinute"] as? String).flatMap(Double.init),
               let d = body["date"] as? [String: Int],
               let date = Calendar.current.date(from: DateComponents(year: d["year"], month: d["month"], day: d["day"])) else { return nil }
-        let (air, name) = sourceInfo(p)
-        return Reading(isAir: air, source: name, time: date, value: v)
+        return Reading(source: sourceInfo(p), time: date, value: v)
     }
 
-    /// Todas las noches del listado, con `isAir` según `dataSource.platform`.
+    /// Todas las noches del listado, con su fuente según `dataSource.platform`.
     private static func nights(_ pts: [[String: Any]]) -> [SleepNight] {
         pts.compactMap { p in
             guard let s = p["sleep"] as? [String: Any], let iv = s["interval"] as? [String: Any],
@@ -428,7 +469,7 @@ struct HealthAPI {
                 mins[t, default: 0] += y.timeIntervalSince(x) / 60
                 segs.append(SleepSegment(stage: t, start: x, end: y))
             }
-            return SleepNight(start: a, end: b, minutes: mins, segments: segs, isAir: sourceInfo(p).0)
+            return SleepNight(start: a, end: b, minutes: mins, segments: segs, source: sourceInfo(p))
         }
     }
 
@@ -485,6 +526,9 @@ extension HealthAPI {
 @MainActor
 final class HealthModel: ObservableObject {
     let auth = GoogleAuth()
+    /// De dónde salen los datos centrales (hoy, día, pulso, histórico, entrenos). Lo propio de Google
+    /// (constantes, zonas, dispositivos, cobertura) se sigue pidiendo a `HealthAPI` directamente.
+    private var source: any HealthSource { GoogleHealthSource(auth: auth) }
     @Published var snapshot: Snapshot? { didSet { rebuildToday() } }
     /// Se calcula una vez por cambio de datos o de fuente (agrupar ~24.000 muestras en cada `body` frenaba la interfaz).
     @Published private(set) var today: TodayMetrics?
@@ -532,7 +576,7 @@ final class HealthModel: ObservableObject {
     private(set) var isPreview = false
     @Published var error: String?
     @Published var lastRefresh: Date?
-    @Published var airOnly: Bool { didSet { UserDefaults.standard.set(airOnly, forKey: "airOnly"); rebuildToday() } }
+    @Published var sourceScope: SourceScope { didSet { sourceScope.save(); rebuildToday() } }
     private var bag = Set<AnyCancellable>()
     @Published private(set) var coverageByType: [String: CoverageRow]?
     @Published private(set) var coverageLoading = false
@@ -545,7 +589,7 @@ final class HealthModel: ObservableObject {
             if t.type != "heart-rate" { return by[t.type] }
             var r = CoverageRow(type: t.type, label: t.label, kind: t.kind)
             let hr = snapshot?.heartRate ?? []
-            r.n = hr.filter(\.isAir).count; r.other = hr.count - r.n
+            r.n = hr.filter { $0.source.provider == .google }.count; r.other = hr.count - r.n
             r.first = hr.map(\.time).min(); r.last = hr.map(\.time).max()
             return r
         }
@@ -563,7 +607,7 @@ final class HealthModel: ObservableObject {
 
     init(preview: Bool = false) {
         isPreview = preview
-        airOnly = preview ? true : UserDefaults.standard.object(forKey: "airOnly") as? Bool ?? true
+        sourceScope = preview ? .googleOnly : SourceScope.stored()
         if !preview {
             loadCache()
             loadSnapshotCache()
@@ -580,16 +624,16 @@ final class HealthModel: ObservableObject {
     func workoutHeart(_ w: Workout) async -> [Reading] {
         if let c = workoutHRCache[w.id] { return c }
         if isPreview { return (snapshot?.heartRate ?? []).filter { $0.time >= w.start && $0.time <= w.end } }
-        let result = await Task { try? await HealthAPI(auth: auth).heartRate(from: w.start, to: w.end) }.value
+        let result = await Task { try? await source.heartRate(from: w.start, to: w.end) }.value
         guard let r = result, !r.isEmpty else { return [] }
-        workoutHRCache[w.id] = r.filter { $0.isAir || !airOnly }
+        workoutHRCache[w.id] = r.filter { sourceScope.keeps($0.source) }
         return workoutHRCache[w.id]!
     }
     /// Pulso entre acostarse y despertar. El de hoy empieza a medianoche, así que la noche se pide aparte, al abrir el desplegable.
     func nightHeart(_ n: SleepNight) async -> [Reading] {
         if let c = nightHRCache[n.end] { return c }
         if isPreview { return (snapshot?.heartRate ?? []).filter { $0.time >= n.start && $0.time <= n.end } }
-        guard let r = try? await HealthAPI(auth: auth).heartRate(from: n.start, to: n.end), !r.isEmpty else { return [] }
+        guard let r = try? await source.heartRate(from: n.start, to: n.end), !r.isEmpty else { return [] }
         nightHRCache[n.end] = r
         return r
     }
@@ -598,8 +642,8 @@ final class HealthModel: ObservableObject {
     func sleepHeadline(_ n: SleepNight, goalHours: Double) -> String { Scoring.sleepHeadline(n, goalHours: goalHours, history: nights) }
 
     private func rebuildToday() {
-        today = snapshot.map { TodayMetrics($0, airOnly: airOnly) }
-        yesterday = yesterdaySnapshot.map { TodayMetrics($0, airOnly: airOnly) }
+        today = snapshot.map { TodayMetrics($0, scope: sourceScope) }
+        yesterday = yesterdaySnapshot.map { TodayMetrics($0, scope: sourceScope) }
     }
 
     func loadYesterday() async {
@@ -611,7 +655,7 @@ final class HealthModel: ObservableObject {
         yesterdayLoading = true
         defer { yesterdayLoading = false }
         // Tarea suelta: cambiar de Hoy a Ayer cancela la de la vista, pero la descarga no se aborta.
-        let result = await Task { try? await HealthAPI(auth: auth).day(starting: midnight) }.value
+        let result = await Task { try? await source.day(starting: midnight) }.value
         guard let s = result else { error = "No se pudo descargar ayer. Vuelve a probar."; return }
         yesterdaySnapshot = s
         let url = Self.yesterdayURL
@@ -664,7 +708,7 @@ final class HealthModel: ObservableObject {
         let yearAgo = cal.date(byAdding: .day, value: -364, to: today)!
         let from = workoutsSyncedAt.map { max(yearAgo, cal.date(byAdding: .day, value: -Self.tailDays - 1, to: cal.startOfDay(for: $0))!) } ?? yearAgo
         // Tarea suelta: si SwiftUI cancela la de la vista, la descarga no se aborta a medias.
-        let result = await Task { try? await HealthAPI(auth: auth).workouts(since: from) }.value
+        let result = await Task { try? await source.workouts(since: from) }.value
         guard let got = result else { workoutsFailed = true; return }
         workoutsFailed = false
         let all = ((workouts ?? []).filter { $0.start < from && $0.start >= yearAgo } + got).sorted { $0.start < $1.start }
@@ -745,12 +789,12 @@ final class HealthModel: ObservableObject {
     /// FC en reposo por día, respetando el filtro de fuente.
     func resting(for r: HistRange) -> [Date: Double] {
         var m: [Date: Double] = [:]
-        for x in history(for: r)?.resting ?? [] where !airOnly || x.isAir { m[Calendar.current.startOfDay(for: x.time)] = x.value }
+        for x in history(for: r)?.resting ?? [] where sourceScope.keeps(x.source) { m[Calendar.current.startOfDay(for: x.time)] = x.value }
         if let x = snapshot?.restingHR { m[Calendar.current.startOfDay(for: x.time)] = x.value }
         return m
     }
 
-    func nights(for r: HistRange) -> [SleepNight] { (history(for: r)?.nights ?? []).filter { !airOnly || $0.isAir } }
+    func nights(for r: HistRange) -> [SleepNight] { (history(for: r)?.nights ?? []).filter { sourceScope.keeps($0.source) } }
 
     var resting: [Date: Double] { resting(for: .month) }
     var nights: [SleepNight] { nights(for: .month) }
@@ -833,7 +877,7 @@ final class HealthModel: ObservableObject {
         let cal = Calendar.current
         let end = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date()))!
         let need = cal.date(byAdding: .day, value: -days, to: end)!
-        let api = HealthAPI(auth: auth)
+        let api = source
         // Tramo reciente: desde unos días antes de la última descarga (o todo, si no hay caché).
         let tailFrom = syncedUntil.map { max(need, cal.date(byAdding: .day, value: -Self.tailDays, to: $0)!) } ?? need
         // Tramo antiguo que la caché aún no tiene.
@@ -870,7 +914,7 @@ final class HealthModel: ObservableObject {
         guard !loading else { return }
         loading = true; error = nil
         defer { loading = false }
-        let api = HealthAPI(auth: auth)
+        let api = source
         do {
             let cal = Calendar.current
             let cachedHR = snapshot.map { cal.isDateInToday($0.fetchedAt) ? $0.heartRate : [] } ?? []
@@ -933,7 +977,7 @@ extension HealthAPI {
             guard let pts = try? await points(type, filter: filter(type), pageSize: 100, maxPages: 2) else { return nil }
             let key = type.split(separator: "-").enumerated().map { $0.offset == 0 ? String($0.element) : $0.element.capitalized }.joined()
             return pts.compactMap { p -> VitalPoint? in
-                guard Self.sourceInfo(p).0, let b = p[key] as? [String: Any], let d = b["date"] as? [String: Int],
+                guard Self.sourceInfo(p).provider == .google, let b = p[key] as? [String: Any], let d = b["date"] as? [String: Int],
                       let day = Calendar.current.date(from: DateComponents(year: d["year"], month: d["month"], day: d["day"])),
                       let v = value(b), v.isFinite else { return nil }  // un NaN rompe la codificación JSON y la caché no se guardaba
                 return VitalPoint(day: day, value: v)
@@ -973,7 +1017,7 @@ extension HealthAPI {
         let start = cal.date(byAdding: .day, value: -(days - 1), to: cal.startOfDay(for: Date()))!
         let pts = try await points("active-zone-minutes", filter: "active_zone_minutes.interval.start_time >= \"\(Self.iso(start))\"", pageSize: 1000, maxPages: 15)
         var byDay: [Date: ZoneDay] = [:]
-        for p in pts where Self.sourceInfo(p).0 {
+        for p in pts where Self.sourceInfo(p).provider == .google {
             guard let b = p["activeZoneMinutes"] as? [String: Any], let iv = b["interval"] as? [String: Any],
                   let c = (iv["civilStartTime"] as? [String: Any])?["date"] as? [String: Int],
                   let day = cal.date(from: DateComponents(year: c["year"], month: c["month"], day: c["day"])),

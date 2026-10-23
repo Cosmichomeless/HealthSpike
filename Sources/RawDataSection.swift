@@ -71,7 +71,7 @@ struct RawDataSection: View {
 
     private func clock(_ d: Date) -> String { d.formatted(Date.FormatStyle(date: .omitted, time: .standard).locale(esES)) }
     private func dayTime(_ d: Date) -> String { "\(d.dayMonth) \(clock(d))" }
-    private func src(_ r: Reading) -> String { r.isAir ? "Air" : r.source }
+    private func src(_ r: Reading) -> String { r.source.origin }
     private func num(_ v: Double, _ decimals: Int) -> String { String(format: "%.\(decimals)f", v) }
 
     /// Primera fila con el reparto por fuente (Air frente a Apple Health u otras).
@@ -113,7 +113,7 @@ struct RawDataSection: View {
         guard let n else { return [] }
         var rows = [
             Row(left: "Inicio / fin", right: "\(dayTime(n.start)) / \(dayTime(n.end))"),
-            Row(left: "Fuente", right: n.isAir ? "Air" : "Otra"),
+            Row(left: "Fuente", right: n.source.origin),
             Row(left: "Dormido", right: hm(n.asleep)),
         ]
         for st in ["DEEP", "REM", "LIGHT", "AWAKE"] {
@@ -135,7 +135,7 @@ struct RawDataSection: View {
 
     private func nightRows(_ nights: [SleepNight]) -> [Row] {
         nights.reversed().map { n in
-            Row(left: "\(n.end.dayMonth) · \(clock(n.start))–\(clock(n.end))\(n.isAir ? "" : " · otra fuente")",
+            Row(left: "\(n.end.dayMonth) · \(clock(n.start))–\(clock(n.end))\(n.source.provider == .google ? "" : " · otra fuente")",
                 right: "\(hm(n.asleep)) (prof. \(hm(n.minutes["DEEP"] ?? 0)))")
         }
     }

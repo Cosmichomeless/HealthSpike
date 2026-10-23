@@ -6,11 +6,11 @@ Estudio de 2026-10-23. Decide cómo abrir la app a más dispositivos y más púb
 
 **Sí, el híbrido es la mejor forma.** Cada fuente se lee por su camino más directo y la app los junta:
 
-| Dispositivo | Camino | Por qué |
-|---|---|---|
-| Fitbit Air y otros de Google/Fitbit | Google Health API (como ahora) | Es el dato original y completo, con el detalle que Apple Salud no guarda. |
-| Apple Watch, iPhone | HealthKit | Lectura nativa, sin cuenta ni servidor. |
-| Oura, WHOOP, Garmin, Withings, Polar… | HealthKit | Todos escriben en Apple Salud desde su app; se leen sin su API ni su aprobación. |
+| Dispositivo                           | Camino                         | Por qué                                                                          |
+| ------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------- |
+| Fitbit Air y otros de Google/Fitbit   | Google Health API (como ahora) | Es el dato original y completo, con el detalle que Apple Salud no guarda.        |
+| Apple Watch, iPhone                   | HealthKit                      | Lectura nativa, sin cuenta ni servidor.                                          |
+| Oura, WHOOP, Garmin, Withings, Polar… | HealthKit                      | Todos escriben en Apple Salud desde su app; se leen sin su API ni su aprobación. |
 
 La app pide permiso a Apple Salud solo cuando el usuario añade esa fuente. Sigue sin haber servidor.
 
@@ -117,9 +117,9 @@ No hay cifras fiables que citar. Razonamiento cualitativo: solo Air = muy poca g
 
 ## Plan por fases
 
-0. **Spike de fuentes (½ día)**: pantalla de depuración que liste `HKSource`/`HKDevice` por tipo de dato en tu iPhone (Apple Watch + lo que escribe Google Health). Resultado: bundle id de Google/Fitbit en Apple Salud y qué métricas llegan duplicadas.
-1. **Modelo de fuentes**: `HealthSource`, `SourceID`, quitar `isAir`; sin cambios visibles.
-2. **Conector HealthKit**: pasos, calorías, pulso, reposo, sueño y entrenos; permisos por métrica.
+0. **Spike de fuentes (½ día) · HECHA**: pantalla de depuración que liste `HKSource`/`HKDevice` por tipo de dato en tu iPhone (Apple Watch + lo que escribe Google Health). Resultado: Google/Fitbit escribe en Apple Salud con bundle `com.fitbit.FitbitMobile`; el Watch y el iPhone usan `com.apple.health.<UUID>` (distinguir por `HKSource.name`); pasos/distancia llegan de 3 fuentes y pulso, reposo, SpO₂, respiración y sueño de Watch + Fitbit.
+1. **Modelo de fuentes · HECHA**: `SourceID` (proveedor + origen), `SourceScope` (`googleOnly`/`all`) y protocolo `HealthSource` de operaciones gruesas (snapshot, day, heartRate, history, workouts) en lugar de un `fetch(métrica, rango)` genérico; `GoogleHealthSource` es un alias de `HealthAPI`. `isAir`/`airOnly` eliminados, cachés antiguas compatibles, sin cambios visibles.
+2. **Conector HealthKit**: `AppleHealthSource: HealthSource` con pasos, distancia, pulso, reposo, sueño y entrenos (calorías y el resto de métricas, en la 5); permisos de solo lectura; filtro de fuentes (excluye `com.fitbit.*`) y listado de dispositivos. Sin selector todavía: se prueba en el iPhone real contra la sonda.
 3. **Selector por métrica** y regla anti-duplicados en «Todas».
 4. **Permisos, privacidad, ficha y web**: reescribir textos; política; etiquetas de App Store.
 5. **Más métricas** (VFC, SpO₂, respiración, temperatura) y entrenos detallados.

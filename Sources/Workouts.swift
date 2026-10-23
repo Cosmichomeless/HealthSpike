@@ -15,7 +15,10 @@ struct Workout: Codable, Identifiable, Equatable {
     var paceMinPerKm: Double?
     /// Minutos en cada zona de pulso: light, moderate, vigorous, peak.
     var zones: [String: Int] = [:]
-    var isAir: Bool
+    var source: SourceID = .google
+
+    private enum CodingKeys: String, CodingKey { case id, type, name, start, end, kcal, km, steps, avgHR, paceMinPerKm, zones, source }
+    fileprivate enum Legacy: String, CodingKey { case isAir }
 
     var minutes: Double { end.timeIntervalSince(start) / 60 }
 
@@ -60,7 +63,7 @@ extension HealthAPI {
                            steps: Self.num(m["steps"]).flatMap { $0 > 0 ? Int($0) : nil },
                            avgHR: Self.num(m["averageHeartRateBeatsPerMinute"]).map { Int($0.rounded()) },
                            paceMinPerKm: Self.num(m["averagePaceSecondsPerMeter"]).map { $0 * 1000 / 60 },
-                           zones: zones, isAir: Self.sourceInfo(p).0)
+                           zones: zones, source: Self.sourceInfo(p))
         }.sorted { $0.start < $1.start }
     }
 }
@@ -74,15 +77,39 @@ extension HealthModel {
     private var allWorkouts: [Workout] { workouts ?? [] }
     #endif
 
-    /// Entrenos de un día natural, el más antiguo primero (respeta «solo Air» de Ajustes).
+    /// Entrenos de un día natural, el más antiguo primero (respeta la fuente elegida en Ajustes).
     func workouts(on day: Date) -> [Workout] {
         let cal = Calendar.current
-        return allWorkouts.filter { cal.isDate($0.start, inSameDayAs: day) && (!airOnly || $0.isAir) }
+        return allWorkouts.filter { cal.isDate($0.start, inSameDayAs: day) && sourceScope.keeps($0.source) }
     }
 
-    /// Entrenos que empiezan dentro de [from, to) (respeta «solo Air» de Ajustes).
+    /// Entrenos que empiezan dentro de [from, to) (respeta la fuente elegida en Ajustes).
     func workouts(from: Date, to: Date) -> [Workout] {
-        allWorkouts.filter { $0.start >= from && $0.start < to && (!airOnly || $0.isAir) }
+        allWorkouts.filter { $0.start >= from && $0.start < to && sourceScope.keeps($0.source) }
+    }
+}
+
+/// Las cachés anteriores guardaban `isAir` en vez de `source`; está en una extensión para conservar el `init` de miembros.
+extension Workout {
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        type = try c.decode(String.self, forKey: .type)
+        name = try c.decode(String.self, forKey: .name)
+        start = try c.decode(Date.self, forKey: .start)
+        end = try c.decode(Date.self, forKey: .end)
+        kcal = try c.decodeIfPresent(Double.self, forKey: .kcal)
+        km = try c.decodeIfPresent(Double.self, forKey: .km)
+        steps = try c.decodeIfPresent(Int.self, forKey: .steps)
+        avgHR = try c.decodeIfPresent(Int.self, forKey: .avgHR)
+        paceMinPerKm = try c.decodeIfPresent(Double.self, forKey: .paceMinPerKm)
+        zones = try c.decodeIfPresent([String: Int].self, forKey: .zones) ?? [:]
+        if let id = try c.decodeIfPresent(SourceID.self, forKey: .source) {
+            source = id
+        } else {
+            let isAir = try decoder.container(keyedBy: Legacy.self).decodeIfPresent(Bool.self, forKey: .isAir) ?? true
+            source = SourceID(legacyIsAir: isAir, name: nil)
+        }
     }
 }
 
@@ -316,8 +343,8 @@ struct WorkoutDetailView: View {
                         ZoneBar(zones: w.zones)
                     }.card()
                 }
-                if !w.isAir {
-                    Label("Este entreno no viene de la Air.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
+                if w.source.provider != .google {
+                    Label("Este entreno no viene de Google Health.", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
                 }
             }.padding(.horizontal, 16).padding(.bottom, 24)
         }

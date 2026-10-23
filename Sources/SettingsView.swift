@@ -17,14 +17,14 @@ struct SettingsView: View {
         NavigationStack {
             Form {
                 Section {
-                    Picker("Fuente", selection: $model.airOnly) {
-                        Text("Solo Air").tag(true)
-                        Text("Todas").tag(false)
+                    Picker("Fuente", selection: $model.sourceScope) {
+                        Text("Solo Google Health").tag(SourceScope.googleOnly)
+                        Text("Todas").tag(SourceScope.all)
                     }.pickerStyle(.segmented)
                 } header: { Text("Fuente de los datos") } footer: {
-                    Text(model.airOnly
+                    Text(model.sourceScope == .googleOnly
                          ? "Se ignoran los puntos de Apple Health que Google mezcla en las mismas listas."
-                         : "Suma Air + Apple Health: pasos y distancia pueden salir duplicados.")
+                         : "Suma Google Health + Apple Health: pasos y distancia pueden salir duplicados.")
                 }
 
                 Section("Objetivos") {
@@ -108,7 +108,7 @@ struct SettingsView: View {
                 Text(c == .clear ? "Se vuelve a pedir todo a Google, hasta un año de datos."
                                  : "Se borran los datos guardados en el móvil y habrá que volver a iniciar sesión.")
             }
-            .onChange(of: model.airOnly) { _, _ in model.publishWidget() }
+            .onChange(of: model.sourceScope) { _, _ in model.publishWidget() }
             // Los widgets leen los objetivos y la edad: se les avisa al cerrar, no en cada vuelta de la rueda.
             .onDisappear { model.publishWidget() }
         }
