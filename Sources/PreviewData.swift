@@ -46,12 +46,22 @@ enum PreviewData {
     static func snapshot(daysAgo: Int = 0) -> Snapshot {
         let midnight = day(daysAgo)
         var s = Snapshot()
-        // Pasos y distancia cada 15 min entre las 7:00 y las 21:00.
-        for q in 0..<56 {
-            let t = midnight.addingTimeInterval(7 * 3600 + Double(q) * 900)
+        // Pasos y distancia cada 15 min desde las 0:00 hasta las 21:00 (casi nada de noche, el grueso de día),
+        // escalados para que el total del día sea el objetivo y la gráfica ocupe todo el eje.
+        let target = daysAgo == 0 ? 8_966.0 : daysAgo == 1 ? 6_200.0 : 7_400.0
+        let raw: [Double] = (0..<84).map { q in
+            let h = Double(q) / 4
+            if h < 6 { return 2 + noise(q * 3 + daysAgo) * 12 }
+            if h < 7.5 { return (h - 5.5) / 2 * 150 * (0.5 + noise(q + daysAgo)) }
             let busy = noise(q + daysAgo * 100) > 0.45 ? 1.0 : 0.15
-            let steps = (30 + noise(q * 3 + daysAgo) * 420) * busy
-            s.steps.append(reading(t, steps.rounded()))
+            return (30 + noise(q * 3 + daysAgo) * 420) * busy
+        }
+        let k = target / raw.reduce(0, +)
+        var counts = raw.map { ($0 * k).rounded() }
+        counts[counts.count - 1] += target - counts.reduce(0, +)
+        for (q, steps) in counts.enumerated() {
+            let t = midnight.addingTimeInterval(Double(q) * 900)
+            s.steps.append(reading(t, steps))
             s.distanceKm.append(reading(t, steps * 0.00072))
         }
         // Pulso cada 5 min durante todo el día.

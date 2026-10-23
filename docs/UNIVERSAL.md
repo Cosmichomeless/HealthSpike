@@ -131,8 +131,9 @@ No hay cifras fiables que citar. Razonamiento cualitativo: solo Air = muy poca g
 - Sin dispositivos Oura/WHOOP/Garmin a mano, solo se puede probar con datos de terceros o con voluntarios.
 - Reescribir web, política y ficha antes de publicar; no mezclar con el envío 1.0 si se quiere salir pronto.
 
-## Decisiones que necesitas tomar
+## Decisiones tomadas (2026-10-23)
 
-1. ¿Se hace antes del 1.0 o se publica 1.0 solo Fitbit Air y el universal va en 1.1? (Recomendado: 1.0 como está, universal en 1.1; la fase 0 es barata y se puede hacer ya.)
-2. ¿El selector se queda por métrica (como Google) o con una fuente global en Ajustes? (Recomendado: por métrica, con «Todas» por defecto.)
-3. ¿Se acepta que las puntuaciones propias de Oura/WHOOP no aparezcan?
+1. **Universal ya, no en 1.1**: se publica la 1.0 con Google + Apple Salud. Fase 0 (spike de fuentes) se hace ahora.
+2. **Selector global en Ajustes: «Google Health» | «Apple Salud»**. Ventajas: evita duplicados (las dos fuentes nunca se mezclan), cubre al usuario de un solo wearable, reutiliza el panel «Datos de la API» que ya existe en Ajustes. Dentro de Apple Salud, un subselector de dispositivo (Todos / Apple Watch / Oura / WHOOP…). Override por métrica se deja para 1.1.
+3. **Puntuaciones propias**: no se prometen. Se admite que Readiness/Recovery/Strain/Body Battery no llegan a Apple Salud; la app calcula su propia puntuación de sueño donde haya fases.
+4. **Web, política y ficha**: reescritas para ser universales (ver `Portfolio/src/app/healthspike/`, sin commitear ni desplegar hasta que la app lea Apple Salud).
