@@ -1051,7 +1051,7 @@ extension HealthModel {
         m.vitals = PreviewData.vitals()
         m.zones = PreviewData.zones()
         m.hrDays = PreviewData.hrDays(days: 365)
-        m.devices = [PairedDevice(name: "Fitbit Air", isTracker: true, version: nil, batteryLevel: 25, batteryStatus: "Low",
+        m.devices = [PairedDevice(name: "Fitbit Air", isTracker: true, version: nil, batteryLevel: 78, batteryStatus: "Normal",
                                   lastSync: Date().addingTimeInterval(-600))]
         m.coverageByType = PreviewData.coverage()
         m.lastRefresh = Date()

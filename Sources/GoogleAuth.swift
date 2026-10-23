@@ -58,9 +58,16 @@ final class GoogleAuth: NSObject, ObservableObject, ASWebAuthenticationPresentat
         if let v = env["GH_CLIENT_SECRET"], !v.isEmpty { Keychain.set(v, for: "client_secret") }
         if let v = env["GH_REFRESH_TOKEN"], !v.isEmpty { Keychain.set(v, for: "refresh_token") }
         // Móvil real: client_id del cliente iOS desde Resources/GoogleClient.plist (no versionado, sin secreto).
-        if Keychain.get("client_id") == nil,
+        // Manda el del plist (si cambia o se borra el cliente, `deleted_client`); el de las variables de entorno, solo en desarrollo.
+        if (env["GH_CLIENT_ID"] ?? "").isEmpty,
            let url = Bundle.main.url(forResource: "GoogleClient", withExtension: "plist"),
-           let id = NSDictionary(contentsOf: url)?["CLIENT_ID"] as? String {
+           let id = NSDictionary(contentsOf: url)?["CLIENT_ID"] as? String, !id.isEmpty,
+           Keychain.get("client_id") != id {
+            // Credenciales de otro cliente: el refresh_token no sirve con el nuevo y un secreto viejo cambiaría el modo de login.
+            if Keychain.get("client_id") != nil {
+                Keychain.set(nil, for: "refresh_token")
+                Keychain.set(nil, for: "client_secret")
+            }
             Keychain.set(id, for: "client_id")
         }
     }

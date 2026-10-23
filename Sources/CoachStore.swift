@@ -332,9 +332,9 @@ extension CoachStore {
         let old = cal.date(byAdding: .day, value: -4, to: today)!
         func at(_ day: Date, _ hour: Int) -> Date { cal.date(byAdding: .hour, value: hour, to: day)! }
         return CoachStore(preview: [
-            CoachMessage(created: at(today, 8), day: today, kind: .sleep, title: "Una noche algo corta",
-                         summary: "Dormiste **6 h 40 min**, unos 80 minutos menos que tu objetivo. El sueño profundo fue de **1 h 10 min** y la puntuación, **74 de 100**.",
-                         advice: "Intenta acostarte media hora antes esta noche."),
+            CoachMessage(created: at(today, 8), day: today, kind: .sleep, title: "Una noche redonda",
+                         summary: "Dormiste **7 h 19 min**, a solo 41 minutos de tu objetivo, con una eficiencia del **97 %** y una puntuación de **91 de 100**.",
+                         advice: "Mantén esta hora de acostarte y deja las pantallas una hora antes: te está funcionando."),
             CoachMessage(created: at(yesterday, 21), day: yesterday, kind: .day, title: "Un día tranquilo",
                          summary: "Diste **6.200 pasos** (el 62 % de tu objetivo) y quemaste **2.180 kcal**. Sin entrenos registrados.",
                          advice: "Un paseo corto antes de cenar te ayudaría a llegar a tu objetivo."),

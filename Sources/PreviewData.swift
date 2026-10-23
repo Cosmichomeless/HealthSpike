@@ -180,3 +180,21 @@ extension View {
     }
 }
 #endif
+
+// MARK: - Modo demo
+
+enum Demo {
+    /// Solo en DEBUG y con el argumento `-demo`; en Release siempre es falso.
+    #if DEBUG
+    static let on = CommandLine.arguments.contains("-demo")
+    /// `-tab N` (0 Hoy … 4 Coach) elige la pestaña inicial.
+    static let tab: Int = {
+        let a = CommandLine.arguments
+        guard let i = a.firstIndex(of: "-tab"), i + 1 < a.count, let n = Int(a[i + 1]), (0...4).contains(n) else { return 0 }
+        return n
+    }()
+    #else
+    static let on = false
+    static let tab = 0
+    #endif
+}

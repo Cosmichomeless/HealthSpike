@@ -2,11 +2,26 @@ import SwiftUI
 
 @main
 struct HealthSpikeApp: App {
-    @StateObject private var model = HealthModel()
-    @StateObject private var logs = LogStore()
-    @StateObject private var coach = CoachStore()
+    @StateObject private var model: HealthModel
+    @StateObject private var logs: LogStore
+    @StateObject private var coach: CoachStore
     @StateObject private var chat = CoachChat()
     @Environment(\.scenePhase) private var phase
+
+    init() {
+        #if DEBUG
+        // `-demo`: la app real con datos de muestra y sin sesión ni red (capturas de la web).
+        if Demo.on {
+            _model = StateObject(wrappedValue: HealthModel.preview)
+            _logs = StateObject(wrappedValue: LogStore.preview)
+            _coach = StateObject(wrappedValue: CoachStore.preview)
+            return
+        }
+        #endif
+        _model = StateObject(wrappedValue: HealthModel())
+        _logs = StateObject(wrappedValue: LogStore())
+        _coach = StateObject(wrappedValue: CoachStore())
+    }
 
     var body: some Scene {
         WindowGroup {

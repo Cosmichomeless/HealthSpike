@@ -13,7 +13,7 @@ struct RootView: View {
 
     var body: some View {
         Group {
-            if model.auth.signedIn {
+            if model.auth.signedIn || Demo.on {
                 TabView(selection: $tab) {
                     TodayView().tabItem { Label("Hoy", systemImage: "square.grid.2x2.fill") }.tag(Tab.today)
                     NavigationStack { SleepDetailView().routeDestinations() }.tabItem { Label("Sueño", systemImage: "moon.fill") }.tag(Tab.sleep)
@@ -29,6 +29,7 @@ struct RootView: View {
         .environment(\.calendar, esCalendar)
         .environment(\.liveHeart, live)
         .environment(\.openCoach) { tab = .coach }
+        .task { if Demo.on { tab = [.today, .sleep, .heart, .activity, .coach][Demo.tab] } }
         .task { if model.auth.signedIn { await model.refresh(force: false) } }
         .task(id: model.auth.signedIn) {
             guard model.auth.signedIn else { return }
