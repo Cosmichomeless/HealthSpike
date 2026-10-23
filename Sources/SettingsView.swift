@@ -83,6 +83,7 @@ struct SettingsView: View {
                 Section("Para depurar") {
                     NavigationLink("Datos de la API") { ApiDataView() }
                     NavigationLink("Bluetooth de la pulsera") { BluetoothProbeView() }
+                    NavigationLink("Apple Salud (fuentes)") { HealthKitProbeView() }
                     NavigationLink("Resumen con IA local (prueba)") { LocalAIView() }
                 }
 
