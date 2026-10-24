@@ -147,6 +147,9 @@ struct DayTrendChart: View {
         .chartYScale(domain: 0...max((data.map(\.value).max() ?? 1) * 1.15, 1))
         .chartXAxis { hourAxis(domain) }
         .chartYAxis { AxisMarks(position: .trailing, values: .automatic(desiredCount: 4)) }
+        .overlay {
+            if data.isEmpty { Text("Sin datos todavía").font(.footnote).foregroundStyle(.secondary) }
+        }
     }
 }
 
